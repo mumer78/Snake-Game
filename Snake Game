@@ -1,0 +1,205 @@
+import pygame
+import random
+import os
+pygame.init()
+pygame.mixer.init()
+
+
+# Colors
+WHITE = (255, 255, 255)
+RED = (255, 0, 0)
+BLACK = (0, 0, 0)
+
+# Screen dimensions
+SCREEN_WIDTH = 900
+SCREEN_HEIGHT = 450
+
+# Game settings
+INIT_VELOCITY = 5
+SNAKE_SIZE = 30
+FPS = 60
+
+#First class game
+class Game:
+    def __init__(self):
+        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        self.clock = pygame.time.Clock()
+        self.font = pygame.font.SysFont("comicsansms", 45)
+        self.small_font = pygame.font.SysFont("comicsansms", 25)
+        self.bg_img = pygame.image.load("snake-game-1680-x-1050-background-6syqer1fr6oahe0b.webp")
+        self.bg_img = pygame.transform.scale(self.bg_img, (SCREEN_WIDTH, SCREEN_HEIGHT)).convert_alpha()
+        self.hiscore = self.load_hiscore()
+        pygame.display.set_caption("SnakesWithUmer")
+
+# reading and writing highscore
+    def load_hiscore(self):
+        if not os.path.exists("hiscore.txt"):
+            with open("hiscore.txt", "w") as f:
+                f.write("0")
+        with open("hiscore.txt", "r") as f:
+            return int(f.read())
+
+    def save_hiscore(self, hiscore):
+        with open("hiscore.txt", "w") as f:
+            f.write(str(hiscore))
+
+# function to write large font texts
+    def text_screen(self, text, color, x, y):
+        screen_text = self.font.render(text, True, color)
+        self.screen.blit(screen_text, [x, y])
+
+# fuction to write small font texts
+    def text_screens(self, text, color, x, y):
+        screen_text = self.small_font.render(text, True, color)
+        self.screen.blit(screen_text, [x, y])
+
+# function to make this welcome screen
+    def welcome_screen(self):
+        bg_image = pygame.image.load("cute-snake-game-character-8m6scx5j8ivp9lcv.webp")
+
+        exit_game = False
+        while not exit_game:
+            self.screen.blit(bg_image, (0, 0))
+            # self.screen.blit(self.bg_img, (0, 0))  # Display the background image
+            self.text_screen("Welcome to Snakes", BLACK, 260, 170)
+            self.text_screen("Press Space Bar To Play", BLACK, 220, 230)
+
+# if quit (cross) button is click the game will exit if space is press then the music will start
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    exit_game = True
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                    pygame.mixer.music.load("flying-cobra-120600.mp3")
+                    pygame.mixer.music.play(-1)
+                    pygame.mixer.music.play()
+                    self.game_loop()
+
+            self.clock.tick(FPS)
+            pygame.display.update()
+
+# function of game loop making gameover screen and using buttons like up down right left
+    def game_loop(self):
+        snake = Snake()
+        food = Food()
+        score = 0
+        game_over = False
+        exit_game = False
+        bg_image = pygame.image.load("cute-snake-game-character-8m6scx5j8ivp9lcv.webp")
+
+        while not exit_game:
+            if game_over:
+                self.save_hiscore(self.hiscore)
+                self.screen.blit(bg_image, (0, 0))
+                self.text_screen("Game Over!", RED, 310, 170)
+                self.text_screen("Press Enter To Continue", RED, 220, 230)
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        exit_game = True
+                    if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
+                        self.welcome_screen()
+            else:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        exit_game = True
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_RIGHT:
+                            snake.set_velocity(INIT_VELOCITY, 0)
+                        if event.key == pygame.K_LEFT:
+                            snake.set_velocity(-INIT_VELOCITY, 0)
+                        if event.key == pygame.K_UP:
+                            snake.set_velocity(0, -INIT_VELOCITY)
+                        if event.key == pygame.K_DOWN:
+                            snake.set_velocity(0, INIT_VELOCITY)
+                        if event.key == pygame.K_q:
+                            score += 10
+
+                snake.move()
+                 #setting game score when snake hits to food
+                if snake.collides_with(food):
+                    score += 10
+                    food.reposition()
+                    snake.grow()
+                    if score > self.hiscore:
+                        self.hiscore = score
+
+                if snake.collides_with_self() or snake.out_of_bounds(SCREEN_WIDTH, SCREEN_HEIGHT):
+                    game_over = True
+                    pygame.mixer.music.load("hiss3-103123.mp3")
+                    pygame.mixer.music.play()
+
+                self.screen.fill(WHITE)
+                self.screen.blit(self.bg_img, (0, 0))
+
+
+                self.text_screens(f"Score: {score}  Hiscore: {self.hiscore}", (0, 0, 255), 5, 5)
+                food.draw(self.screen)
+                snake.draw(self.screen)
+
+
+            self.clock.tick(FPS)
+            pygame.display.update()
+        pygame.quit()
+
+# second class snake x and y velocity to move vertically and horizontally
+class Snake:
+    def __init__(self):
+        self.body = [[45, 55]]
+        self.length = 1
+        self.velocity_x = 0
+        self.velocity_y = 0
+
+    def set_velocity(self, vx, vy):
+        self.velocity_x = vx
+        self.velocity_y = vy
+
+# making head of snake
+    def move(self):
+        head = [self.body[-1][0] + self.velocity_x, self.body[-1][1] + self.velocity_y]
+        self.body.append(head)
+        if len(self.body) > self.length:
+            self.body.pop(0)
+
+# incriment lenght of snake with 5
+    def grow(self):
+        self.length += 5
+# collision with food settings
+    def collides_with(self, food):
+        return abs(self.body[-1][0] - food.x) < SNAKE_SIZE and abs(self.body[-1][1] - food.y) < SNAKE_SIZE
+# itself collision setting
+    def collides_with_self(self):
+        return self.body[-1] in self.body[:-1]
+# snake should not go out of boundry setting
+    def out_of_bounds(self, width, height):
+        head = self.body[-1]
+        return head[0] < 0 or head[0] > width or head[1] < 0 or head[1] > height
+# drawing snake and its alternatives color yellow and orange
+    def draw(self, screen):
+        for i, segment in enumerate(self.body):
+            # Set the color based on whether it's the head or not
+            if i == len(self.body) - 1:
+                color = (255, 255, 0)  # Yellow for the head
+            else:
+                if i % 2 == 0:
+                    color = (255, 165, 0)  # Orange for even segments
+                else:
+                    color = (255, 255, 0)  # Yellow for odd segments
+            pygame.draw.rect(screen, color, [segment[0], segment[1], SNAKE_SIZE, SNAKE_SIZE])
+
+
+# third class food decomposation and composition at different locations
+class Food:
+    def __init__(self):
+        self.reposition()
+# above from boundaries
+    def reposition(self):
+        self.x = random.randint(20, SCREEN_WIDTH -10)
+        self.y = random.randint(20, SCREEN_HEIGHT -10)
+
+#drawing food
+    def draw(self, screen):
+        pygame.draw.rect(screen, RED, [self.x, self.y, SNAKE_SIZE, SNAKE_SIZE])
+
+
+if __name__ == "__main__":
+    game = Game()
+    game.welcome_screen()
